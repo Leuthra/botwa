@@ -1,0 +1,10 @@
+node_modules
+dist
+baileys_auth_info
+data
+tmp
+backups
+.env
+.git
+.vscode
+*.log

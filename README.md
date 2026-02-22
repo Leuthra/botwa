@@ -44,6 +44,31 @@
    npm install
    ```
 
+### Option B: Using Docker / Podman (Recommended for Server Deployment)
+
+No need to install Node.js, `ffmpeg`, or C++ build tools on your host machine. Just use Docker!
+
+1. Clone and navigate to the directory:
+   ```bash
+   git clone <repository-url>
+   cd botwa
+   ```
+2. Build and start the container in detached mode:
+   ```bash
+   docker-compose up -d --build
+   ```
+   _(If you are using Podman, simply replace `docker-compose` with `podman-compose`)_
+3. View the logs to scan the WhatsApp Pairing Code on first execution:
+   ```bash
+   docker attach botwa_container
+   # or
+   docker logs -f botwa_container
+   ```
+4. To stop the bot, press `Ctrl+C` or run:
+   ```bash
+   docker-compose down
+   ```
+
 ## ⚙️ Configuration
 
 1. Create a `.env` file in the root directory (if not already present) and set the following variables:

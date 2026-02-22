@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  botwa:
+    build: .
+    container_name: botwa_container
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    volumes:
+      - ./.env:/app/.env
+      - ./baileys_auth_info:/app/baileys_auth_info
+      - ./data:/app/data
+      - ./backups:/app/backups
+
+    environment:
+      - NODE_ENV=production
+      - TZ=Asia/Jakarta
+
+    # Limit memory (optional) if running on a small VPS
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 512M
