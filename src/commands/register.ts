@@ -19,7 +19,6 @@ class CmdRegis {
     for (const file of files) {
       const fullPath = join(dir, file.name);
       if (file.isDirectory()) {
-
         await this.scann(fullPath, result);
       } else if (
         file.isFile() &&
@@ -37,17 +36,17 @@ class CmdRegis {
       console.log(`Creating directory: ${this.directory}`);
       fs.mkdirSync(this.directory, { recursive: true });
     }
-    
+
     cmd.reset();
     const files: string[] = await this.scann();
-    
+
     for (let file of files) {
       try {
         if (!fs.existsSync(file)) {
           console.error(`Command file does not exist: ${file}`);
           continue;
         }
-        
+
         const timestamp = Date.now();
         const fileUrl = pathToFileURL(file).href;
         await import(`${fileUrl}?t=${timestamp}`);
@@ -87,17 +86,31 @@ class CmdRegis {
         await this.reloadCommands();
       })
       .on("error", (error) => {
-        console.error(`\x1b[31m[ERROR]\x1b[0m Error watching directory:`, error);
+        console.error(
+          `\x1b[31m[ERROR]\x1b[0m Error watching directory:`,
+          error,
+        );
       });
   }
 
-  private async reloadCommands(): Promise<void> {
-    try {
-      await this.load();
-      console.log(`\x1b[32m[SUCCESS]\x1b[0m Commands reloaded successfully!`);
-    } catch (error) {
-      console.error(`\x1b[31m[ERROR]\x1b[0m Failed to reload commands:`, error);
+  private reloadTimeout: NodeJS.Timeout | null = null;
+
+  private reloadCommands(): void {
+    if (this.reloadTimeout) {
+      clearTimeout(this.reloadTimeout);
     }
+
+    this.reloadTimeout = setTimeout(async () => {
+      try {
+        await this.load();
+        console.log(`\x1b[32m[SUCCESS]\x1b[0m Commands reloaded successfully!`);
+      } catch (error) {
+        console.error(
+          `\x1b[31m[ERROR]\x1b[0m Failed to reload commands:`,
+          error,
+        );
+      }
+    }, 1000);
   }
 }
 

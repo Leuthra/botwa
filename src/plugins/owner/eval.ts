@@ -18,49 +18,53 @@ cmd.add({
 
     if (!cmdName) return m.reply("Invalid command.");
 
-    const execProcess: ChildProcessWithoutNullStreams = spawn(
-      cmdName,
-      cmdArgs,
-      {
-        cwd: process.cwd(),
-        shell: false,
-        stdio: ["pipe", "pipe", "pipe"],
-      },
-    );
+    try {
+      const execProcess: ChildProcessWithoutNullStreams = spawn(
+        cmdName,
+        cmdArgs,
+        {
+          cwd: process.cwd(),
+          shell: false,
+          stdio: ["pipe", "pipe", "pipe"],
+        },
+      );
 
-    let stdout = "";
-    let stderr = "";
+      let stdout = "";
+      let stderr = "";
 
-    execProcess.stdout.on("data", (data: Buffer) => {
-      stdout += data.toString();
-    });
+      execProcess.stdout.on("data", (data: Buffer) => {
+        stdout += data.toString();
+      });
 
-    execProcess.stderr.on("data", (data: Buffer) => {
-      stderr += data.toString();
-    });
+      execProcess.stderr.on("data", (data: Buffer) => {
+        stderr += data.toString();
+      });
 
-    const timeout = setTimeout(() => {
-      execProcess.kill("SIGTERM");
-      stderr += "\n[!] Command terminated: too long to run.";
-    }, 15000);
-    execProcess.on("close", (code: number | null) => {
-      clearTimeout(timeout);
-      let output = "";
-      if (code === 0 && stdout.trim()) {
-        output = stdout.trim();
-      } else if (stderr.trim()) {
-        output = stderr.trim();
-      } else {
-        output = "No output.";
-      }
+      const timeout = setTimeout(() => {
+        execProcess.kill("SIGTERM");
+        stderr += "\n[!] Command terminated: too long to run.";
+      }, 15000);
+      execProcess.on("close", (code: number | null) => {
+        clearTimeout(timeout);
+        let output = "";
+        if (code === 0 && stdout.trim()) {
+          output = stdout.trim();
+        } else if (stderr.trim()) {
+          output = stderr.trim();
+        } else {
+          output = "No output.";
+        }
 
-      m.reply("```" + output + "```");
-    });
+        m.reply("```" + output + "```");
+      });
 
-    execProcess.on("error", (err: Error) => {
-      clearTimeout(timeout);
-      m.reply("Error running command:\\n```" + err.message + "```");
-    });
+      execProcess.on("error", (err: Error) => {
+        clearTimeout(timeout);
+        m.reply("Error running command:\n```" + err.message + "```");
+      });
+    } catch (err: any) {
+      m.reply(`❌ Failed to start process:\n\`\`\`${err.message}\`\`\``);
+    }
   },
 });
 

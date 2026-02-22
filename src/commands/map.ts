@@ -1,4 +1,4 @@
-import type { ProcMsg } from '../utils/msg.js';
+import type { ProcMsg } from "../utils/msg.js";
 
 export interface CommandContext {
   m: ProcMsg;

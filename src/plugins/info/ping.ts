@@ -5,7 +5,7 @@ import { performance } from "perf_hooks";
 cmd.add({
   name: "ping",
   alias: ["pong", "latency"],
-  category: ["info"],  
+  category: ["info"],
   desc: "Check bot response time and detailed system information",
   usage: ".ping",
   example: ".ping",

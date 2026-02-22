@@ -14,11 +14,21 @@ class CommandHandler {
     customSend?: (jid: string, content: any, options?: any) => Promise<any>,
   ): Promise<void> {
     const ownerNum = (process.env.OWNER || "").split("@")[0];
-    if (
-      process.env.isSelf === "true" &&
-      processedMessage.sender.split("@")[0] !== ownerNum
-    )
-      return;
+
+    let realSender = processedMessage.sender;
+    if (processedMessage.isGroup && processedMessage.metadata?.participants) {
+      const match = processedMessage.metadata.participants.find(
+        (p: any) => p.id === realSender || p.lid === realSender,
+      );
+      if (match && match.id) realSender = match.id;
+    }
+    const realSenderNum = realSender.split("@")[0] || "";
+
+    const isSelfMode =
+      String(process.env.isSelf).toLowerCase() === "true" ||
+      String(process.env.IS_SELF).toLowerCase() === "true";
+
+    if (isSelfMode && realSenderNum !== ownerNum) return;
 
     const messageText = processedMessage.body.trim() || "";
     const parseResult = this.parseCommand(messageText);
@@ -51,9 +61,8 @@ class CommandHandler {
     const foundCommand = cmd.find(commandName);
     if (!foundCommand) return;
 
-    const sender = processedMessage.sender.split("@")[0] || "";
-    if (sender !== ownerNum) {
-      const lastCall = this.rateLimit.get(sender) || 0;
+    if (realSenderNum !== ownerNum) {
+      const lastCall = this.rateLimit.get(realSenderNum) || 0;
       const now = Date.now();
       if (now - lastCall < this.RATE_LIMIT_MS) {
         processedMessage.reply(
@@ -61,12 +70,14 @@ class CommandHandler {
         );
         return;
       }
-      this.rateLimit.set(sender, now);
+      this.rateLimit.set(realSenderNum, now);
     }
 
     try {
       if (foundCommand.run) {
-        if (!this.checkPermissions(foundCommand, processedMessage)) {
+        if (
+          !this.checkPermissions(foundCommand, processedMessage, realSenderNum)
+        ) {
           processedMessage.reply(
             "You do not have permission to use this command.",
           );
@@ -90,10 +101,13 @@ class CommandHandler {
     return [commandName, args];
   }
 
-  private checkPermissions(command: Command, message: ProcMsg): boolean {
+  private checkPermissions(
+    command: Command,
+    message: ProcMsg,
+    realSenderNum: string,
+  ): boolean {
     const ownerNum = (process.env.OWNER || "").split("@")[0];
-    if (command.isOwner && message.sender.split("@")[0] !== ownerNum)
-      return false;
+    if (command.isOwner && realSenderNum !== ownerNum) return false;
     if (command.isGroup && !message.isGroup) return false;
     if (command.isPrivate && message.isGroup) return false;
     if (command.isSelf && !message.fromMe) return false;

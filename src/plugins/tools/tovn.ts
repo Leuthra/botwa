@@ -5,6 +5,7 @@ import { join } from "path";
 import { writeFile, unlink, readFile } from "fs/promises";
 import { randomBytes } from "crypto";
 import { downloadMediaMessage } from "baileys";
+import ffmpegPath from "ffmpeg-static";
 
 cmd.add({
   name: "tovn",
@@ -18,7 +19,11 @@ cmd.add({
       return m.reply("Balas pesan audio/video yang ingin dikonversi.");
     const quotedMessage = m.quoted?.message;
     const messageType = m?.quoted?.type;
-    const mime = quotedMessage && messageType && (quotedMessage as any)[messageType]?.mimetype || "";
+    const mime =
+      (quotedMessage &&
+        messageType &&
+        (quotedMessage as any)[messageType]?.mimetype) ||
+      "";
     if (!m?.quoted?.isMedia || !/audio|video/.test(mime))
       return m.reply("File yang dibalas bukan audio/video.");
 
@@ -27,10 +32,19 @@ cmd.add({
         m?.quoted,
         "buffer",
         {},
-        { reuploadRequest: sock.waUploadToServer, logger: sock.logger || console },
+        {
+          reuploadRequest: sock.waUploadToServer,
+          logger: sock.logger || console,
+        },
       );
-      const tempInput = join(tmpdir(), randomBytes(6).toString("hex") + getExtension(mime));
-      const tempOutput = join(tmpdir(), randomBytes(6).toString("hex") + ".ogg");
+      const tempInput = join(
+        tmpdir(),
+        randomBytes(6).toString("hex") + getExtension(mime),
+      );
+      const tempOutput = join(
+        tmpdir(),
+        randomBytes(6).toString("hex") + ".ogg",
+      );
 
       await writeFile(tempInput, buffer);
       await convertToOpus(tempInput, tempOutput);
@@ -61,12 +75,16 @@ cmd.add({
 
 function convertToOpus(input: string, output: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const ffmpeg = spawn("ffmpeg", [
+    const ffmpegBin = (ffmpegPath as unknown as string) || "ffmpeg";
+    const ffmpeg = spawn(ffmpegBin, [
       "-y",
-      "-i", input,
+      "-i",
+      input,
       "-vn",
-      "-c:a", "libopus",
-      "-b:a", "128k",
+      "-c:a",
+      "libopus",
+      "-b:a",
+      "128k",
       output,
     ]);
 
@@ -78,7 +96,11 @@ function convertToOpus(input: string, output: string): Promise<void> {
 }
 
 function generateWaveform(buffer: Buffer, bars = 64): number[] {
-  const samples = new Int16Array(buffer.buffer, buffer.byteOffset, buffer.length / 2);
+  const samples = new Int16Array(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.length / 2,
+  );
   const chunkSize = Math.floor(samples.length / bars);
   const waveform: number[] = [];
 

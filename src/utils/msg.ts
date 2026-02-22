@@ -58,6 +58,7 @@ export interface ProcMsg {
   device: "android" | "ios" | "web" | "desktop" | "unknown";
   isBot: boolean;
   reply: (text: string) => Promise<any>;
+  download?: () => Promise<Buffer | null>;
 }
 
 const dlMedia = async (message: any): Promise<Buffer | null> => {
@@ -158,6 +159,7 @@ const procMsg = async (
       reply: async (_text: string) => {
         return Promise.resolve(null);
       },
+      download: async () => dlMedia(rawMessage),
     };
   }
   const id = key?.id || "";
@@ -172,6 +174,7 @@ const procMsg = async (
     isGroup && chatJid ? dStore.groupMetadata?.[chatJid] || {} : {};
   const senderJid =
     key?.participant || (isGroup ? chatJid : jidNormalizedUser(chatJid) || "");
+
   const sender =
     isGroup && metadata?.participants
       ? metadata.participants.find((p: any) => p.id === senderJid)?.id ||
@@ -202,10 +205,14 @@ const procMsg = async (
     );
 
   const currentMentions = (contextInfo?.mentionedJid || []) as string[];
-  const quotedMentions =
-    isQuoted && quotedRawMessage?.contextInfo?.mentionedJid
-      ? (quotedRawMessage.contextInfo.mentionedJid as string[])
-      : [];
+  let quotedMentions: string[] = [];
+  if (isQuoted && contextInfo?.quotedMessage) {
+    const qMsgObj = contextInfo.quotedMessage;
+    const qMsgType = Object.keys(qMsgObj || {})[0];
+    if (qMsgType && (qMsgObj as any)[qMsgType]?.contextInfo?.mentionedJid) {
+      quotedMentions = (qMsgObj as any)[qMsgType].contextInfo.mentionedJid;
+    }
+  }
 
   const uniqueMentions = new Set([...currentMentions, ...quotedMentions]);
   const allMentions: string[] = Array.from(uniqueMentions);
@@ -226,6 +233,20 @@ const procMsg = async (
           (item: any) =>
             item && typeof item === "object" && item.key?.id === quotedMsgId,
         ) as proto.WebMessageInfo | undefined;
+
+      if (!quotedContent && contextInfo?.quotedMessage) {
+        const userJid = socket?.user?.id?.split(":")[0] + "@s.whatsapp.net";
+        quotedContent = {
+          key: {
+            id: quotedMsgId,
+            remoteJid: chatJid,
+            fromMe: contextInfo.participant === userJid,
+            participant: contextInfo.participant,
+          },
+          message: contextInfo.quotedMessage,
+          messageTimestamp: timestamp,
+        } as any;
+      }
     }
     if (quotedContent) {
       quoted = await procMsg(quotedContent, socket, dStore);
@@ -261,6 +282,7 @@ const procMsg = async (
         reply: async (_text: string) => {
           return Promise.resolve(null);
         },
+        download: async () => dlMedia((quotedContent as any)?.message),
       };
     }
   }
@@ -307,15 +329,15 @@ const procMsg = async (
     mentioned: allMentions,
     device,
     isBot,
-    reply: async (_text: string) => {
-      return await socket.sendMessage(
+    reply: (text: string) => {
+      const isQuoted = !!id;
+      return socket.sendMessage(
         chatJid,
-         { text: _text },
-        {
-          quoted: message,
-        },
+        { text },
+        isQuoted ? { quoted: originalMessage } : {},
       );
     },
+    download: async () => dlMedia(rawMessage),
   };
 };
 

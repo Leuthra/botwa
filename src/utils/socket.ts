@@ -58,6 +58,9 @@ export default async function createSocket(
     options?: MiscMessageGenerationOptions,
   ) => {
     return new Promise((resolve, reject) => {
+      if (messageQueue.length > 500) {
+        return reject(new Error("Message queue size limit exceeded (500)"));
+      }
       messageQueue.push({ jid, content, options, resolve, reject });
 
       if (!(sock as any)._originalSendMessage) {
