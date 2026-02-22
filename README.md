@@ -9,12 +9,6 @@
 <p align="center">
   A powerful and extensible WhatsApp bot built with TypeScript and the Baileys library. This bot allows you to automate interactions on WhatsApp with a modular command system and plugin architecture. Fully compatible with Node.js runtime</p>
 
-<p align="center">
-  <a href="https://chat.whatsapp.com/LIxeP0zjxkwIq8uMhiEFbD?mode=wwt">
-    <img src="https://img.shields.io/badge/WhatsApp_Group-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" alt="WhatsApp Group">
-  </a>
-</p>
-
 ## ✨ Features
 
 - 🔧 **Modular Command System**: Easy to add and manage commands through a plugin system
