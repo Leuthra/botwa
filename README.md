@@ -15,8 +15,8 @@
 - 📱 **Multi-device Support**: Works with WhatsApp's multi-device protocol (Baileys v7)
 - 🗄️ **Persistent Storage**: Robust SQLite database (`better-sqlite3`) to prevent memory leaks
 - 🛡️ **Anti-Spam Security**: Built-in rate limiter to prevent bot abuse
-- � **Connection Stability**: Exponential backoff for reconnections & Graceful Shutdown logic
-- �👥 **Group Management**: Welcome messages and group participation tracking
+- 🔌 **Connection Stability**: Exponential backoff for reconnections & Graceful Shutdown logic
+- 👥 **Group Management**: Welcome messages and group participation tracking
 - 🔐 **Permission System**: Owner-only, group-only, and private chat commands
 - 💬 **UX Enhancements**: Auto-read (blue ticks) and typing indicators for natural interaction
 - 🔄 **File Watching**: Automatically reloads commands when plugin files are modified
