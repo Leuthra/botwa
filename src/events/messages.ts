@@ -4,6 +4,7 @@ import { procMsg } from "../utils/msg.js";
 import { prMsg } from "../utils/fmt.js";
 import handler from "../commands/handler.js";
 import NodeCache from "@cacheable/node-cache";
+import { ContactsDB } from "../utils/db.js";
 
 const MAX_MESSAGES_PER_JID = 50;
 
@@ -16,7 +17,10 @@ export async function onMessagesUpsert(
   LocalStore: LocalStore,
   groupCache: NodeCache<any>,
 ): Promise<void> {
-  if (LocalStore.groupMetadata && Object.keys(LocalStore.groupMetadata).length < 1) {
+  if (
+    LocalStore.groupMetadata &&
+    Object.keys(LocalStore.groupMetadata).length < 1
+  ) {
     const now = Date.now();
     if (groupFetchRetryAt === null || now >= groupFetchRetryAt) {
       try {
@@ -34,7 +38,10 @@ export async function onMessagesUpsert(
   }
 
   if (!!upsert.requestId) {
-    console.log("placeholder message received for request of id=" + upsert.requestId, upsert);
+    console.log(
+      "placeholder message received for request of id=" + upsert.requestId,
+      upsert,
+    );
   }
 
   for (const msg of upsert.messages) {
@@ -44,7 +51,8 @@ export async function onMessagesUpsert(
       LocalStore.messages[jid].push(msg);
 
       if (LocalStore.messages[jid].length > MAX_MESSAGES_PER_JID) {
-        LocalStore.messages[jid] = LocalStore.messages[jid].slice(-MAX_MESSAGES_PER_JID);
+        LocalStore.messages[jid] =
+          LocalStore.messages[jid].slice(-MAX_MESSAGES_PER_JID);
       }
     }
 
@@ -53,12 +61,33 @@ export async function onMessagesUpsert(
     const processedMessage = await procMsg(msg as any, whatsapp, LocalStore);
     if (!processedMessage) continue;
 
+    if (
+      msg.key.remoteJid &&
+      msg.key.id &&
+      msg.key.remoteJid !== "status@broadcast" &&
+      !msg.key.fromMe
+    ) {
+      whatsapp.readMessages(
+        [
+          {
+            remoteJid: msg.key.remoteJid,
+            id: msg.key.id,
+            participant: msg.key.participant,
+          },
+        ].filter(Boolean) as any,
+      );
+    }
+
     if (processedMessage.isGroup) {
       const store = processedMessage?.metadata;
       if (store) {
         const metadata = await whatsapp.groupMetadata(processedMessage.chat);
-        if (typeof store.ephemeralDuration === "undefined") store.ephemeralDuration = 0;
-        if (store.ephemeralDuration && store.ephemeralDuration !== metadata?.ephemeralDuration) {
+        if (typeof store.ephemeralDuration === "undefined")
+          store.ephemeralDuration = 0;
+        if (
+          store.ephemeralDuration &&
+          store.ephemeralDuration !== metadata?.ephemeralDuration
+        ) {
           console.log(
             `ephemeralDuration for ${processedMessage.chat} has changed!\nupdate groupMetadata...`,
           );
@@ -68,10 +97,30 @@ export async function onMessagesUpsert(
       }
     }
 
+    const senderLid = msg.key.participant || msg.key.remoteJid;
+    if (
+      senderLid &&
+      processedMessage.pushName &&
+      processedMessage.pushName !== "Unknown"
+    ) {
+      ContactsDB.upsert({
+        id: senderLid,
+        lid: senderLid.includes("@lid") ? senderLid : undefined,
+        phoneNumber: senderLid.includes("@s.whatsapp.net")
+          ? senderLid
+          : undefined,
+        name: processedMessage.pushName,
+        notify: processedMessage.pushName,
+      });
+    }
+
     const ephemeralExpiration = processedMessage.isGroup
-      ? (processedMessage.metadata && processedMessage.metadata.ephemeralDuration) || null
-      : ((processedMessage.message as { [key: string]: any })[processedMessage.type]
-            ?.contextInfo?.expiration) || null;
+      ? (processedMessage.metadata &&
+          processedMessage.metadata.ephemeralDuration) ||
+        null
+      : (processedMessage.message as { [key: string]: any })[
+          processedMessage.type
+        ]?.contextInfo?.expiration || null;
     const sendMessageWithEphemeral = async (
       jid: string,
       content: AnyMessageContent,
@@ -83,7 +132,16 @@ export async function onMessagesUpsert(
       });
     };
 
-    await handler.handleCommand(processedMessage, whatsapp, LocalStore, sendMessageWithEphemeral);
+    if (handler.isCommand(processedMessage.body) && processedMessage.chat) {
+      await whatsapp.sendPresenceUpdate("composing", processedMessage.chat);
+    }
+
+    await handler.handleCommand(
+      processedMessage,
+      whatsapp,
+      LocalStore,
+      sendMessageWithEphemeral,
+    );
     prMsg(processedMessage);
   }
 }

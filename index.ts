@@ -15,10 +15,11 @@ import {
 } from "baileys";
 
 import type { SocketConfig, WASocket } from "baileys";
-import makeWASocket from './src/utils/socket.js';
+import makeWASocket from "./src/utils/socket.js";
 import * as P from "pino";
 import CmdRegis from "./src/commands/register.js";
 import type { LocalStore } from "./src/types.js";
+import { ContactsDB } from "./src/utils/db.js";
 
 import { onMessagesUpsert } from "./src/events/messages.js";
 import {
@@ -39,7 +40,6 @@ import handler from "./src/commands/handler.js";
 const LocalStore: LocalStore = {
   messages: {},
   groupMetadata: {},
-  contacts: {},
 };
 
 const logger = P.pino({ level: "silent" });
@@ -51,8 +51,8 @@ const rl = readline.createInterface({
   output: process.stdout,
 });
 
-rl.on('close', () => {
-  console.log('Readline interface closed');
+rl.on("close", () => {
+  console.log("Readline interface closed");
 });
 
 const question = (text: string) =>
@@ -60,12 +60,14 @@ const question = (text: string) =>
     try {
       rl.question(text, resolve);
     } catch (error) {
-      console.error('Error with readline question:', error);
+      console.error("Error with readline question:", error);
       reject(error);
     }
   });
 
 let isStarting = false;
+let reconnectAttempts = 0;
+let shutdownRegistered = false;
 
 const startWhatsApp = async () => {
   if (isStarting) {
@@ -75,9 +77,10 @@ const startWhatsApp = async () => {
   isStarting = true;
 
   try {
-    async function getMessage(
-      key: { remoteJid?: string | null; id?: string | null }
-    ): Promise<proto.IMessage | undefined> {
+    async function getMessage(key: {
+      remoteJid?: string | null;
+      id?: string | null;
+    }): Promise<proto.IMessage | undefined> {
       if (!key.remoteJid || !key.id) return undefined;
       const stored = LocalStore.messages[key.remoteJid];
       if (stored) {
@@ -87,7 +90,8 @@ const startWhatsApp = async () => {
       return undefined;
     }
 
-    const { state, saveCreds } = await useMultiFileAuthState("baileys_auth_info");
+    const { state, saveCreds } =
+      await useMultiFileAuthState("baileys_auth_info");
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`using WA v${version.join(".")}, isLatest: ${isLatest}`);
 
@@ -103,7 +107,8 @@ const startWhatsApp = async () => {
       msgRetryCounterCache,
       generateHighQualityLinkPreview: true,
       getMessage,
-      cachedGroupMetadata: async (jid) => Promise.resolve(groupCache.get(jid) as any),
+      cachedGroupMetadata: async (jid) =>
+        Promise.resolve(groupCache.get(jid) as any),
     };
 
     const whatsapp = await makeWASocket(config as SocketConfig);
@@ -120,32 +125,47 @@ const startWhatsApp = async () => {
     }
 
     whatsapp.ev.process(async (events) => {
-      // ── Connection ──────────────────────────────────────────────
       if (events["connection.update"]) {
         const { connection, lastDisconnect } = events["connection.update"];
         if (connection === "close") {
           const shouldReconnect =
-            (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+            (lastDisconnect?.error as Boom)?.output?.statusCode !==
+            DisconnectReason.loggedOut;
           if (shouldReconnect) {
-            console.log("Restarting...");
+            const factor = Math.min(reconnectAttempts, 8); 
+            const timeout = Math.min(2000 * Math.pow(2, factor), 300000); 
+            reconnectAttempts++;
+
+            console.log(
+              `Connection closed. Reconnecting in ${timeout / 1000}s... (Attempt: ${reconnectAttempts})`,
+            );
             isStarting = false;
-            startWhatsApp();
+            setTimeout(() => startWhatsApp(), timeout);
           } else {
             console.log("Connection closed. You are logged out.");
           }
         }
         if (connection === "open") {
           console.log("Success Connect to WhatsApp");
-          isStarting = false;
+          isStarting = false; 
+          reconnectAttempts = 0; 
         }
       }
 
-      // ── Credentials ─────────────────────────────────────────────
+      if (!shutdownRegistered) {
+        shutdownRegistered = true;
+        const shutdown = () => {
+          console.log("\n[WA] Shutting down gracefully...");
+          whatsapp.end(undefined);
+          process.exit(0);
+        };
+        process.on("SIGINT", shutdown);
+        process.on("SIGTERM", shutdown);
+      }
+
       if (events["creds.update"]) {
         await saveCreds();
       }
-
-      // ── Labels ──────────────────────────────────────────────────
       if (events["labels.association"]) {
         console.log(events["labels.association"]);
       }
@@ -153,7 +173,6 @@ const startWhatsApp = async () => {
         console.log(events["labels.edit"]);
       }
 
-      // ── History Sync ────────────────────────────────────────────
       if (events["messaging-history.set"]) {
         const { chats, contacts, messages, isLatest, progress, syncType } =
           events["messaging-history.set"];
@@ -165,12 +184,15 @@ const startWhatsApp = async () => {
         );
       }
 
-      // ── Messages ────────────────────────────────────────────────
       if (events["messages.upsert"]) {
-        await onMessagesUpsert(events["messages.upsert"], whatsapp, LocalStore, groupCache);
+        await onMessagesUpsert(
+          events["messages.upsert"],
+          whatsapp,
+          LocalStore,
+          groupCache,
+        );
       }
 
-      // ── Poll updates ─────────────────────────────────────────────
       if (events["messages.update"]) {
         for (const { update } of events["messages.update"]) {
           if (update.pollUpdates) {
@@ -188,11 +210,9 @@ const startWhatsApp = async () => {
         }
       }
 
-      // ── Contacts ────────────────────────────────────────────────
       if (events["contacts.upsert"]) {
         for (const contact of events["contacts.upsert"]) {
-          if (LocalStore?.contacts)
-            LocalStore.contacts[contact.id] = { ...(contact || {}), isContact: true };
+          ContactsDB.upsert({ ...contact, isContact: true });
         }
       }
 
@@ -202,39 +222,44 @@ const startWhatsApp = async () => {
             const newUrl =
               contact.imgUrl === null
                 ? null
-                : await whatsapp!.profilePictureUrl(contact.id!).catch(() => null);
-            console.log(`contact ${contact.id} has a new profile pic: ${newUrl}`);
+                : await whatsapp!
+                    .profilePictureUrl(contact.id!)
+                    .catch(() => null);
+            console.log(
+              `contact ${contact.id} has a new profile pic: ${newUrl}`,
+            );
           }
-          if (LocalStore?.contacts && contact.id)
-            LocalStore.contacts[contact.id] = {
-              ...(LocalStore.contacts?.[contact.id] || {}),
-              ...(contact || {}),
-            };
+          ContactsDB.upsert(contact);
         }
       }
 
       if (events["lid-mapping.update"]) {
         const { lid, pn } = events["lid-mapping.update"];
         console.log(`[LID] mapping updated: ${lid} ↔ ${pn}`);
-        if (LocalStore?.contacts) {
-          const existing = LocalStore.contacts[lid] || LocalStore.contacts[pn] || {};
-          LocalStore.contacts[lid] = { ...existing, id: lid, phoneNumber: pn };
-          LocalStore.contacts[pn] = { ...existing, id: pn, lid };
-        }
+        ContactsDB.upsert({ id: lid, lid, phoneNumber: pn });
+        ContactsDB.upsert({ id: pn, lid, phoneNumber: pn });
       }
 
-      // ── Groups ──────────────────────────────────────────────────
       if (events["groups.upsert"]) {
         await onGroupsUpsert(events["groups.upsert"], LocalStore, groupCache);
       }
       if (events["groups.update"]) {
-        await onGroupsUpdate(events["groups.update"], whatsapp, LocalStore, groupCache);
+        await onGroupsUpdate(
+          events["groups.update"],
+          whatsapp,
+          LocalStore,
+          groupCache,
+        );
       }
       if (events["group-participants.update"]) {
-        await onGroupParticipantsUpdate(events["group-participants.update"], whatsapp, LocalStore, groupCache);
+        await onGroupParticipantsUpdate(
+          events["group-participants.update"],
+          whatsapp,
+          LocalStore,
+          groupCache,
+        );
       }
 
-      // ── Chats ───────────────────────────────────────────────────
       if (events["chats.delete"]) {
         console.log("chats deleted ", events["chats.delete"]);
       }

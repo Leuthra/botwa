@@ -18,12 +18,14 @@
 ## ✨ Features
 
 - 🔧 **Modular Command System**: Easy to add and manage commands through a plugin system
-- 📱 **Multi-device Support**: Works with WhatsApp's multi-device protocol
-- 👥 **Group Management**: Welcome messages and group participation tracking
+- 📱 **Multi-device Support**: Works with WhatsApp's multi-device protocol (Baileys v7)
+- 🗄️ **Persistent Storage**: Robust SQLite database (`better-sqlite3`) to prevent memory leaks
+- 🛡️ **Anti-Spam Security**: Built-in rate limiter to prevent bot abuse
+- � **Connection Stability**: Exponential backoff for reconnections & Graceful Shutdown logic
+- �👥 **Group Management**: Welcome messages and group participation tracking
 - 🔐 **Permission System**: Owner-only, group-only, and private chat commands
+- 💬 **UX Enhancements**: Auto-read (blue ticks) and typing indicators for natural interaction
 - 🔄 **File Watching**: Automatically reloads commands when plugin files are modified
-- 📎 **Media Handling**: Support for processing various media types
-- 📚 **Message History**: Stores and processes historical messages
 
 ## 🧰 Prerequisites
 
@@ -167,27 +169,28 @@ Commands can have different permission levels:
 
 ```
 botwa/
-├── index.ts              # Main entry point
+├── index.ts              # Main entry point & Connection handler
 ├── .env                  # Environment variables
 ├── .gitignore
 ├── package.json
 ├── README.md
 ├── tsconfig.json         # TypeScript configuration
+├── data/                 # SQLite database folder (`bot.db`)
 ├── baileys_auth_info/    # Authentication credentials
 ├── node_modules/
 ├── dist/                 # Compiled JavaScript files (after build)
 └── src/
-    ├── data-store.ts     # Data persistence layer
     ├── types.ts          # Shared TypeScript interfaces
     ├── commands/
-    │   ├── handler.ts    # Command processing logic
+    │   ├── handler.ts    # Command processing logic & Rate-Limiter
     │   ├── map.ts        # Command registry interface
     │   └── register.ts   # Command loading and watching
     ├── events/
     │   ├── groups.ts     # Group event handlers
-    │   └── messages.ts   # Message event handlers
+    │   └── messages.ts   # Message event handlers (with UX logic)
     ├── plugins/          # Command plugins (.ts files)
     └── utils/
+        ├── db.ts         # SQLite Database Wrapper
         ├── fmt.ts        # Message formatting utilities
         ├── msg.ts        # Message processing utilities
         └── socket.ts     # WASocket initialization

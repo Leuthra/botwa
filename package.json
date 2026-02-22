@@ -8,6 +8,7 @@
     "start": "npm run build && tsx index.ts"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.7.2",
     "tsx": "^4.19.1",
     "typescript": "^5.9.3"
@@ -15,6 +16,7 @@
   "dependencies": {
     "@cacheable/node-cache": "^1.7.3",
     "baileys": "^7.0.0-rc.9",
+    "better-sqlite3": "^12.6.2",
     "chalk": "^5.6.2",
     "chokidar": "^4.0.3",
     "dotenv": "^17.2.3",

@@ -1,9 +1,12 @@
 import cmd from "./map.js";
 import type { Command } from "./map.js";
-import type { ProcMsg } from '../utils/msg.js';
+import type { ProcMsg } from "../utils/msg.js";
 import type { CommandContext } from "./map.js";
 
 class CommandHandler {
+  private rateLimit = new Map<string, number>();
+  private RATE_LIMIT_MS = 3000;
+
   async handleCommand(
     processedMessage: ProcMsg,
     socket: any,
@@ -11,7 +14,11 @@ class CommandHandler {
     customSend?: (jid: string, content: any, options?: any) => Promise<any>,
   ): Promise<void> {
     const ownerNum = (process.env.OWNER || "").split("@")[0];
-    if (process.env.isSelf === 'true' && processedMessage.sender.split("@")[0] !== ownerNum) return;
+    if (
+      process.env.isSelf === "true" &&
+      processedMessage.sender.split("@")[0] !== ownerNum
+    )
+      return;
 
     const messageText = processedMessage.body.trim() || "";
     const parseResult = this.parseCommand(messageText);
@@ -44,23 +51,36 @@ class CommandHandler {
     const foundCommand = cmd.find(commandName);
     if (!foundCommand) return;
 
+    const sender = processedMessage.sender.split("@")[0] || "";
+    if (sender !== ownerNum) {
+      const lastCall = this.rateLimit.get(sender) || 0;
+      const now = Date.now();
+      if (now - lastCall < this.RATE_LIMIT_MS) {
+        processedMessage.reply(
+          `⏳ Don't spam! Please wait ${Math.ceil((this.RATE_LIMIT_MS - (now - lastCall)) / 1000)} more second(s).`,
+        );
+        return;
+      }
+      this.rateLimit.set(sender, now);
+    }
+
     try {
       if (foundCommand.run) {
         if (!this.checkPermissions(foundCommand, processedMessage)) {
-          processedMessage.reply("You do not have permission to use this command.");
+          processedMessage.reply(
+            "You do not have permission to use this command.",
+          );
           return;
         }
         await Promise.resolve(foundCommand.run(context));
       }
     } catch (error) {
       console.error(`Error executing command '${commandName}':`, error);
-      processedMessage.reply(
-        `❌ Error: ${(error as Error).message}`,
-      );
+      processedMessage.reply(`❌ Error: ${(error as Error).message}`);
     }
   }
 
-  private isCommand(text: string): boolean {
+  public isCommand(text: string): boolean {
     return /^(!|\/|\.)/.test(text);
   }
 
@@ -72,7 +92,8 @@ class CommandHandler {
 
   private checkPermissions(command: Command, message: ProcMsg): boolean {
     const ownerNum = (process.env.OWNER || "").split("@")[0];
-    if (command.isOwner && message.sender.split("@")[0] !== ownerNum) return false;
+    if (command.isOwner && message.sender.split("@")[0] !== ownerNum)
+      return false;
     if (command.isGroup && !message.isGroup) return false;
     if (command.isPrivate && message.isGroup) return false;
     if (command.isSelf && !message.fromMe) return false;
