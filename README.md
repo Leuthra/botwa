@@ -34,6 +34,7 @@
 ## 🚀 Installation
 
 1. Clone the repository:
+
    ```bash
    git clone <repository-url>
    cd botwa
@@ -49,7 +50,7 @@
 1. Create a `.env` file in the root directory (if not already present) and set the following variables:
 
    ```
-   OWNER=6281910094713  # Your phone number in international format
+   OWNER=628xxxxxxxxxx  # Your phone number in international format
    isSelf=true          # Set to true to enable self-mode (only respond to owner)
    ```
 
@@ -58,17 +59,19 @@
 ## 🎯 Usage
 
 ### For Development:
+
 ```bash
 npm run dev
 ```
 
 ### For Production:
+
 1. Build the project:
    ```bash
    npm run build
    ```
-   
 2. Start the bot:
+
    ```bash
    npm start
    ```
@@ -111,7 +114,7 @@ The bot supports a plugin system for adding custom commands:
      desc: "Sends a greeting message",
      async run({ m }: CommandContext) {
        m.reply("Hello! How are you?");
-     }
+     },
    });
    ```
 
@@ -137,13 +140,13 @@ To use middleware functionality:
    cmd.add({
      middleware: async ({ m, sock }: CommandContext) => {
        const messageText = m.body.toLowerCase();
-       
+
        if (messageText.includes("hello")) {
          m.reply("Hi there! I received your message.");
        }
-       
+
        console.log(`Received message: ${m.body} from ${m.sender}`);
-     }
+     },
    });
    ```
 
@@ -175,14 +178,19 @@ botwa/
 ├── dist/                 # Compiled JavaScript files (after build)
 └── src/
     ├── data-store.ts     # Data persistence layer
+    ├── types.ts          # Shared TypeScript interfaces
     ├── commands/
     │   ├── handler.ts    # Command processing logic
     │   ├── map.ts        # Command registry interface
     │   └── register.ts   # Command loading and watching
+    ├── events/
+    │   ├── groups.ts     # Group event handlers
+    │   └── messages.ts   # Message event handlers
     ├── plugins/          # Command plugins (.ts files)
     └── utils/
+        ├── fmt.ts        # Message formatting utilities
         ├── msg.ts        # Message processing utilities
-        └── fmt.ts        # Message formatting utilities
+        └── socket.ts     # WASocket initialization
 ```
 
 ## 🌐 Environment Variables
@@ -202,6 +210,7 @@ To contribute or modify the bot:
 ## 🏗️ Building for Production
 
 To compile the TypeScript code to JavaScript:
+
 ```bash
 npm run build
 ```
