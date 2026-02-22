@@ -4,85 +4,81 @@ cmd.add({
   name: "menu",
   alias: ["help", "list"],
   category: ["info"],
-  desc: "Show all commands or filter by category with detailed information",
+  desc: "Show command list. Use .menu info [name] for details",
+  usage: ".menu | .menu [category] | .menu info [name]",
   async run({ m, args }: CommandContext) {
     const commands = cmd.values();
-    
-    if (args.length > 0) {
-      const targetCategory = args[0]!.toLowerCase();
-      const filteredCommands = commands.filter(
-        (cmd) => cmd.category && Array.isArray(cmd.category) && cmd.category.map(c => c.toLowerCase()).includes(targetCategory)
-      );
-      
-      if (filteredCommands.length === 0) {
-        return m.reply(`No commands found in category: ${targetCategory}`);
-      }
 
-      const categoryCommands = filteredCommands
-        .map(cmd => {
-          const aliases = cmd.alias ? `\n  🏷️ *Aliases:* ${cmd.alias!.join(', ')}` : '';
-          const usage = cmd.usage ? `\n  📋 *Usage:* ${cmd.usage}` : '';
-          const example = cmd.example ? `\n  💡 *Example:* ${cmd.example}` : '';
-          const permissions = [];
-          if (cmd.isOwner) permissions.push('owner only');
-          if (cmd.isGroup) permissions.push('group only');
-          if (cmd.isPrivate) permissions.push('private chat only');
-          if (cmd.isSelf) permissions.push('self only');
-          const permText = permissions.length > 0 ? `\n  🔐 *Permissions:* ${permissions.join(', ')}` : '';
+    if (args[0]?.toLowerCase() === "info" && args[1]) {
+      const target = args[1].toLowerCase().trim();
+      const found = cmd.find(target);
+      if (!found) return m.reply(`❌ Command *${target}* tidak ditemukan.`);
 
-          return `• *${cmd.name}*\n  📝 ${cmd.desc || 'No description'}${usage}${example}${aliases}${permText}`;
-        })
-        .join('\n\n');
-      
-      const response = `*📁 ${targetCategory.toUpperCase()} Commands*\n\n${categoryCommands}\n\nTotal: ${filteredCommands.length} command(s)`;
-      return m.reply(response);
+      const permissions: string[] = [];
+      if (found.isOwner) permissions.push("👑 owner only");
+      if (found.isGroup) permissions.push("👥 group only");
+      if (found.isPrivate) permissions.push("💬 private only");
+      if (found.isSelf) permissions.push("🤖 self only");
+
+      let text = `*📌 ${found.name}*\n`;
+      if (found.desc)     text += `\n📝 ${found.desc}`;
+      if (found.alias?.length) text += `\n🏷️ *Alias:* ${found.alias.join(", ")}`;
+      if (found.category?.length) text += `\n📁 *Kategori:* ${found.category.join(", ")}`;
+      if (found.usage)    text += `\n📋 *Usage:* ${found.usage}`;
+      if (found.example)  text += `\n💡 *Contoh:* ${found.example}`;
+      if (permissions.length) text += `\n🔐 *Permission:* ${permissions.join(", ")}`;
+
+      return m.reply(text);
     }
 
-    const commandsByCategory: { [key: string]: any[] } = {};
-    
-    commands.forEach(command => {
-      if (command.category) {
-        command.category.forEach(cat => {
-          if (!commandsByCategory[cat]) {
-            commandsByCategory[cat] = [];
-          }
-          commandsByCategory[cat].push(command);
-        });
-      } else {
-        if (!commandsByCategory['uncategorized']) {
-          commandsByCategory['uncategorized'] = [];
-        }
-        commandsByCategory['uncategorized'].push(command);
+    const byCategory: Record<string, typeof commands> = {};
+    for (const command of commands) {
+      const cats = command.category?.length ? command.category : ["uncategorized"];
+      for (const cat of cats) {
+        if (!byCategory[cat]) byCategory[cat] = [];
+        byCategory[cat]!.push(command);
       }
-    });
-
-    let menuText = "*🤖 BOTWA COMMAND MENU*\n\n";
-    
-    const categories = Object.keys(commandsByCategory).sort();
-    
-    for (const category of categories) {
-      const categoryCommands = commandsByCategory[category]!;
-      menuText += `*📁 ${category.toUpperCase()} (${categoryCommands.length})*\n`;
-      
-      for (const command of categoryCommands) {
-        const aliases = command.alias ? ` | ${command.alias!.join(', ')}` : '';
-        const permissions = [];
-        if (command.isOwner) permissions.push('owner');
-        if (command.isGroup) permissions.push('group');
-        if (command.isPrivate) permissions.push('private');
-        if (command.isSelf) permissions.push('self');
-        const permText = permissions.length > 0 ? ` (${permissions.join(', ')})` : '';
-        const usage = command.usage ? ` | 📋 ${command.usage}` : '';
-
-        menuText += `  • *${command.name}*${aliases}${permText}${usage}\n    📝 ${command.desc || 'No description'}\n`;
-      }
-      menuText += '\n';
     }
-    
-    menuText += `*💡 Usage:* To see commands in a specific category, use: .menu [category]\n`;
-    menuText += `*📋 Example:* .menu info\n`;
-    menuText += `\n*📊 Total Commands:* ${commands.length}`;
 
-    m.reply(menuText);
+    if (args[0]) {
+      const target = args[0].toLowerCase();
+      const filtered = byCategory[target];
+      if (!filtered?.length) return m.reply(`❌ Kategori *${target}* tidak ditemukan.`);
+
+      let text = `*📁 ${target.toUpperCase()} — ${filtered.length} command*\n\n`;
+      for (const c of filtered) {
+        const perms = [
+          c.isOwner && "👑",
+          c.isGroup && "👥",
+          c.isPrivate && "💬",
+          c.isSelf && "🤖",
+        ].filter(Boolean).join("");
+        const aliases = c.alias?.length ? ` _(${c.alias.join(", ")})_` : "";
+        text += `• *${c.name}*${aliases} ${perms}\n`;
+      }
+      text += `\n💡 Detail: _.menu info [nama]_`;
+      return m.reply(text);
+    }
+
+    const categories = Object.keys(byCategory).sort();
+    let text = `*🤖 BOTWA MENU*\n`;
+
+    for (const cat of categories) {
+      const list = byCategory[cat]!;
+      text += `\n*📁 ${cat.toUpperCase()}*\n`;
+      for (const c of list) {
+        const perms = [
+          c.isOwner && "👑",
+          c.isGroup && "👥",
+          c.isSelf && "🤖",
+        ].filter(Boolean).join("");
+        text += `  • *${c.name}* ${perms}\n`;
+      }
+    }
+
+    text += `\n📊 *Total:* ${commands.length} command`;
+    text += `\n💡 _.menu [kategori]_ • _.menu info [nama]_`;
+
+    m.reply(text);
   },
 });
