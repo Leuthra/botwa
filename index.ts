@@ -151,7 +151,14 @@ const whatsapp = await makeWASocket(config as SocketConfig);
 
     if (events["messages.upsert"]) {
       const upsert = events["messages.upsert"];
-      if (LocalStore.groupMetadata && Object.keys(LocalStore.groupMetadata).length < 1) LocalStore.groupMetadata = await whatsapp.groupFetchAllParticipating();
+      if (LocalStore.groupMetadata && Object.keys(LocalStore.groupMetadata).length < 1) {
+        try {
+          LocalStore.groupMetadata = await whatsapp.groupFetchAllParticipating();
+        } catch (err: any) {
+          // WhatsApp rate-limit (429) — skip fetch, will retry on next message
+          console.warn("[GROUP FETCH] rate-limited or error, skipping:", err?.message ?? err);
+        }
+      }
       if (!!upsert.requestId) {
         console.log(
           "placeholder message received for request of id=" + upsert.requestId,

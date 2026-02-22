@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import { join, resolve } from "path";
+import { pathToFileURL } from "url";
 import cmd from "./map.js";
 import chokidar from "chokidar";
 
@@ -48,7 +49,8 @@ class CmdRegis {
         }
         
         const timestamp = Date.now();
-        await import(`${file}?t=${timestamp}`);
+        const fileUrl = pathToFileURL(file).href;
+        await import(`${fileUrl}?t=${timestamp}`);
       } catch (e: unknown) {
         console.error(
           `Error loading command from ${file}:`,
