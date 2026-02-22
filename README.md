@@ -16,10 +16,13 @@
 - 🗄️ **Persistent Storage**: Robust SQLite database (`better-sqlite3`) to prevent memory leaks
 - 🛡️ **Anti-Spam Security**: Built-in rate limiter to prevent bot abuse
 - 🔌 **Connection Stability**: Exponential backoff for reconnections & Graceful Shutdown logic
-- 👥 **Group Management**: Welcome messages and group participation tracking
+- 👥 **Group Management**: Welcome messages and group participation tracking with a KVS toggle (`.groupevents on|off`)
 - 🔐 **Permission System**: Owner-only, group-only, and private chat commands
 - 💬 **UX Enhancements**: Auto-read (blue ticks) and typing indicators for natural interaction
 - 🔄 **File Watching**: Automatically reloads commands when plugin files are modified
+- 📬 **Message Queueing**: Prevents bans by adding random delays to outgoing messages
+- 🚨 **Global Error Reporter**: Notifies the `OWNER` directly via WhatsApp instead of unhandled crashes
+- 🗃️ **Auto-Backup & Tmp Cleaner**: Creates daily SQLite backups and clears up temporary media files automatically
 
 ## 🧰 Prerequisites
 
@@ -169,6 +172,7 @@ botwa/
 ├── package.json
 ├── README.md
 ├── tsconfig.json         # TypeScript configuration
+├── backups/              # Auto-rotated SQLite backups (Ignored in Git)
 ├── data/                 # SQLite database folder (`bot.db`)
 ├── baileys_auth_info/    # Authentication credentials
 ├── node_modules/
@@ -180,14 +184,16 @@ botwa/
     │   ├── map.ts        # Command registry interface
     │   └── register.ts   # Command loading and watching
     ├── events/
-    │   ├── groups.ts     # Group event handlers
+    │   ├── groups.ts     # Group event handlers (Welcome, Promo, Demote, Leave)
     │   └── messages.ts   # Message event handlers (with UX logic)
     ├── plugins/          # Command plugins (.ts files)
+    │   └── group/events.ts # Admin plugin to toggle group events
     └── utils/
+        ├── backup.ts     # Auto Db backup & Tmp cleaner functions
         ├── db.ts         # SQLite Database Wrapper
         ├── fmt.ts        # Message formatting utilities
         ├── msg.ts        # Message processing utilities
-        └── socket.ts     # WASocket initialization
+        └── socket.ts     # WASocket initialization & Outgoing Message Queueing
 ```
 
 ## 🌐 Environment Variables
