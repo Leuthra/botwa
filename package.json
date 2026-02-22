@@ -5,13 +5,16 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "start": "npm run build && tsx index.ts"
+    "start": "npm run build && tsx index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.7.2",
     "tsx": "^4.19.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "@cacheable/node-cache": "^1.7.3",

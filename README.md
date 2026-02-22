@@ -245,6 +245,22 @@ npm run build
 
 This will create a `dist/` directory with the compiled JavaScript files.
 
+## 🧪 Unit Testing
+
+This project uses **[Vitest](https://vitest.dev/)** to ensure core commands and utilities function correctly without needing a live WhatsApp connection.
+
+To run the automated test suite:
+
+```bash
+npm test
+```
+
+For continuous testing while developing (Watch Mode):
+
+```bash
+npm run test:watch
+```
+
 ## 📚 Common Commands in the Bot
 
 The bot comes with a default command system. Use `!menu`, `!help`, or `!list` to see all available commands once the bot is running.
