@@ -16,14 +16,15 @@ try {
 cmd.add({
   name: "sholat",
   alias: ["shalat", "jadwalsholat", "imsakiyah", "imsak"],
-  category: ["tools", "islamic"],
-  desc: "Melihat Jadwal Sholat dan Imsakiyah harian",
-  usage: "<nama_kota>",
+  desc: "View daily Prayer and Imsak schedules",
+  usage: "<city_name>",
   example: "jakarta",
+  useLimit: 1,
+  mustRegister: true,
   async run({ m, args }: CommandContext) {
     if (args.length === 0) {
       return m.reply(
-        "❌ Masukkan nama kota/kabupaten.\n\nContoh: *.sholat bandung*\natau *.imsakiyah surabaya*",
+        "❌ Please provide a city/regency name.\n\nExample: *.sholat bandung*\nor *.imsakiyah surabaya*",
       );
     }
 
@@ -39,16 +40,14 @@ cmd.add({
 
     if (!foundCity) {
       return m.reply(
-        `❌ Kota/Kabupaten "${query}" tidak ditemukan di database Kemenag RI.\n\nPastikan penulisan sudah benar tanpa singkatan (contoh: *jakarta selatan* bukan *jaksel*).`,
+        `❌ City/Regency "${query}" not found in Kemenag RI database.\n\nPlease ensure correct spelling without abbreviations (e.g., *jakarta selatan* instead of *jaksel*).`,
       );
     }
 
     const regionInfo = cityDb[foundCity];
 
     try {
-      m.reply(
-        `⏳ Mengambil jadwal ibadah untuk wilayah *${regionInfo.kabkota}*...`,
-      );
+      m.reply(`⏳ Fetching prayer schedules for *${regionInfo.kabkota}*...`);
 
       const res = await fetch("https://equran.id/api/v2/shalat", {
         method: "POST",
@@ -62,9 +61,7 @@ cmd.add({
       const json = (await res.json()) as any;
 
       if (json.code !== 200 || !json.data || !json.data.jadwal) {
-        return m.reply(
-          "❌ Failed to get data Sholat from server eQuran.id.",
-        );
+        return m.reply("❌ Failed to get data Sholat from server eQuran.id.");
       }
 
       const todayDate = Number(
@@ -78,20 +75,20 @@ cmd.add({
         json.data.jadwal.find((j: any) => j.tanggal === todayDate) ||
         json.data.jadwal[0];
 
-      let msg = `🕌 *JADWAL SHOLAT & IMSAKIYAH*\n`;
-      msg += `📍 *Wilayah:* ${regionInfo.kabkota}, ${regionInfo.provinsi}\n`;
-      msg += `📅 *Tanggal:* ${targetJadwal.hari}, ${targetJadwal.tanggal_lengkap}\n\n`;
+      let msg = `🕌 *PRAYER & IMSAK SCHEDULES*\n`;
+      msg += `📍 *Region:* ${regionInfo.kabkota}, ${regionInfo.provinsi}\n`;
+      msg += `📅 *Date:* ${targetJadwal.hari}, ${targetJadwal.tanggal_lengkap}\n\n`;
 
       msg += `🌙 *Imsak:*      ${targetJadwal.imsak}\n`;
-      msg += `🌅 *Subuh:*    ${targetJadwal.subuh}\n`;
-      msg += `🌞 *Terbit:*      ${targetJadwal.terbit}\n`;
-      msg += `🌤️ *Dhuha:*    ${targetJadwal.dhuha}\n`;
-      msg += `☀️ *Dzuhur:*   ${targetJadwal.dzuhur}\n`;
-      msg += `🌥️ *Ashar:*      ${targetJadwal.ashar}\n`;
-      msg += `🌇 *Maghrib:* ${targetJadwal.maghrib}\n`;
-      msg += `🌌 *Isya:*         ${targetJadwal.isya}\n\n`;
+      msg += `🌅 *Fajr:*       ${targetJadwal.subuh}\n`;
+      msg += `🌞 *Sunrise:*    ${targetJadwal.terbit}\n`;
+      msg += `🌤️ *Dhuha:*      ${targetJadwal.dhuha}\n`;
+      msg += `☀️ *Dhuhr:*      ${targetJadwal.dzuhur}\n`;
+      msg += `🌥️ *Asr:*        ${targetJadwal.ashar}\n`;
+      msg += `🌇 *Maghrib:*    ${targetJadwal.maghrib}\n`;
+      msg += `🌌 *Isha:*       ${targetJadwal.isya}\n\n`;
 
-      msg += `_Sumber: Bimas Islam (Kemenag RI) via equran.id_`;
+      msg += `_Source: Bimas Islam (Kemenag RI) via equran.id_`;
 
       m.reply(msg);
     } catch (e: any) {

@@ -4,18 +4,18 @@ cmd.add({
   name: "doa",
   alias: ["doaharian", "dzikir"],
   category: ["tools", "islamic"],
-  desc: "Mencari kumpulan doa harian atau dzikir",
-  usage: "[kata_kunci]",
+  desc: "Search for daily prayers or dhikr",
+  usage: "[keyword]",
   example: "tidur",
   async run({ m, args }: CommandContext) {
     try {
-      m.reply("⏳ Get data doa...");
+      m.reply("⏳ Fetching prayer data...");
       const res = await fetch("https://equran.id/api/doa");
       const json = (await res.json()) as any;
       const doaList = json.data as any[];
 
       if (!doaList || doaList.length === 0) {
-        return m.reply("❌ Get data doa failed.");
+        return m.reply("❌ Failed to fetch prayer data.");
       }
 
       if (args.length === 0) {
@@ -23,9 +23,9 @@ cmd.add({
         let msg = `🤲 *${randomDoa.nama}*\n\n`;
         msg += `${randomDoa.ar}\n\n`;
         msg += `*Latin:* ${randomDoa.tr}\n\n`;
-        msg += `*Artinya:* "${randomDoa.idn}"\n`;
+        msg += `*Meaning:* "${randomDoa.idn}"\n`;
         if (randomDoa.tentang)
-          msg += `\n_Maksud/Riwayat:_\n${randomDoa.tentang}`;
+          msg += `\n_Context/History:_\n${randomDoa.tentang}`;
         return m.reply(msg);
       }
 
@@ -38,14 +38,12 @@ cmd.add({
       );
 
       if (results.length === 0) {
-        return m.reply(
-          `❌ Failed to get data doa with keyword "${query}".`,
-        );
+        return m.reply(`❌ Failed to find prayers with keyword "${query}".`);
       }
 
       if (results.length > 5) {
         m.reply(
-          `✅ Found ${results.length} doa with keyword "${query}".\nShowing the first 5...`,
+          `✅ Found ${results.length} prayers with keyword "${query}".\nShowing the first 5...`,
         );
       }
 
@@ -57,14 +55,14 @@ cmd.add({
         combinedMsg += `🤲 *${d.id}. ${d.nama}*\n\n`;
         combinedMsg += `${d.ar}\n\n`;
         combinedMsg += `*Latin:* ${d.tr}\n\n`;
-        combinedMsg += `*Artinya:* "${d.idn}"\n`;
+        combinedMsg += `*Meaning:* "${d.idn}"\n`;
         combinedMsg += `\n─────────────────────\n\n`;
       }
 
       m.reply(combinedMsg.trimEnd());
     } catch (e: any) {
       console.error("[DOA-ERROR]", e);
-      m.reply("❌ Failed to get data doa from server.");
+      m.reply("❌ Failed to fetch prayer data from server.");
     }
   },
 });

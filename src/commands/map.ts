@@ -20,6 +20,9 @@ export interface Command {
   isSelf?: boolean;
   isAdmin?: boolean;
   isBotAdmin?: boolean;
+  isPremium?: boolean;
+  mustRegister?: boolean;
+  useLimit?: boolean | number;
   desc?: string;
   usage?: string;
   example?: string;

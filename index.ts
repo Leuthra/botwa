@@ -19,8 +19,24 @@ import makeWASocket from "./src/utils/socket.js";
 import * as P from "pino";
 import CmdRegis from "./src/commands/register.js";
 import type { LocalStore } from "./src/types.js";
-import { ContactsDB } from "./src/utils/db.js";
+import { ContactsDB, UsersDB } from "./src/utils/db.js";
 import { backupDatabase, cleanTmpFolder } from "./src/utils/backup.js";
+import cron from "node-cron";
+
+cron.schedule(
+  "0 0 * * *",
+  () => {
+    console.log("[CRON] Resetting daily limits for non-premium users to 25...");
+    try {
+      UsersDB.resetDailyLimits(25);
+    } catch (e) {
+      console.error("[CRON ERROR]", e);
+    }
+  },
+  {
+    timezone: "Asia/Jakarta",
+  },
+);
 
 backupDatabase();
 cleanTmpFolder();

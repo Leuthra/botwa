@@ -4,13 +4,15 @@ cmd.add({
   name: "quran",
   alias: ["alquran", "surat", "surah", "ayat"],
   category: ["tools", "islamic"],
-  desc: "Membaca Al-Qur'an (Surat & Ayat) beserta terjemahan dan audionya",
-  usage: "<nomor_surat> [nomor_ayat]",
+  desc: "Read the Quran (Surah & Ayah) with translation and audio",
+  usage: "<surah_number> [ayah_number]",
   example: "1 2",
+  useLimit: 1,
+  mustRegister: true,
   async run({ m, args }: CommandContext) {
     if (args.length === 0) {
       return m.reply(
-        "❌ Format salah.\n\nContoh penggunaan:\n*.quran 1* (Membaca info Surat)\n*.quran 1 2* (Membaca Ayat ke-2)\n*.quran 1 2 tafsir* (Membaca Tafsir Ayat ke-2)",
+        "❌ Invalid format.\n\nExample Usage:\n*.quran 1* (Read Surah info)\n*.quran 1 2* (Read Ayah 2)\n*.quran 1 2 tafsir* (Read Tafsir of Ayah 2)",
       );
     }
 
@@ -27,17 +29,17 @@ cmd.add({
     }
 
     if (isNaN(surahNumber) || surahNumber < 1 || surahNumber > 114) {
-      return m.reply("❌ Nomor Surat must be number 1 until 114.");
+      return m.reply("❌ Surah Number must be between 1 and 114.");
     }
 
     try {
-      m.reply(`⏳ Get data Surat ke-${surahNumber}...`);
+      m.reply(`⏳ Fetching data for Surah ${surahNumber}...`);
 
       const res = await fetch(`https://equran.id/api/v2/surat/${surahNumber}`);
       const json = (await res.json()) as any;
 
       if (json.code !== 200 || !json.data) {
-        return m.reply("❌ Failed to get data Surat from server.");
+        return m.reply("❌ Failed to fetch Surah data from server.");
       }
 
       const surah = json.data;
@@ -49,7 +51,7 @@ cmd.add({
           ayahNumber > surah.jumlahAyat
         ) {
           return m.reply(
-            `❌ Surat *${surah.namaLatin}* hanya memiliki ${surah.jumlahAyat} ayat.`,
+            `❌ Surah *${surah.namaLatin}* only has ${surah.jumlahAyat} ayahs.`,
           );
         }
 
@@ -70,32 +72,32 @@ cmd.add({
           let msg = `📚 *TAFSIR QS. ${surah.namaLatin} (${surah.nomor}:${ayahNumber})*\n\n`;
           msg += targetTafsir.teks.substring(0, 3000);
           if (targetTafsir.teks.length > 3000)
-            msg += "...\n\n_(Tafsir terlalu panjang, dipotong)_";
+            msg += "...\n\n_(Tafsir is too long, truncated)_";
 
           return m.reply(msg);
         }
 
         const ayah = surah.ayat.find((a: any) => a.nomorAyat === ayahNumber);
-        if (!ayah) return m.reply("❌ Ayat not found.");
+        if (!ayah) return m.reply("❌ Ayah not found.");
 
         let msg = `📖 *QS. ${surah.namaLatin} (${surah.nomor}:${ayah.nomorAyat})*\n`;
         msg += `_${surah.arti}_ | _${surah.tempatTurun}_\n\n`;
         msg += `*${ayah.teksArab}*\n\n`;
         msg += `*Latin:* ${ayah.teksLatin}\n\n`;
-        msg += `*Artinya:* "${ayah.teksIndonesia}"\n\n`;
+        msg += `*Meaning:* "${ayah.teksIndonesia}"\n\n`;
         msg += `🎧 *Audio:* ${ayah.audio["05"]}`;
 
         return m.reply(msg);
       }
-      let msg = `📖 *INFO SURAT AL-QUR'AN*\n`;
-      msg += `*Nama Surat:* ${surah.namaLatin} (${surah.nama})\n`;
-      msg += `*Artinya:* ${surah.arti}\n`;
-      msg += `*Jumlah Ayat:* ${surah.jumlahAyat} ayat\n`;
-      msg += `*Tempat Turun:* ${surah.tempatTurun}\n\n`;
-      msg += `*Deskripsi Singkat:*\n${surah.deskripsi.replace(/<[^>]*>?/gm, "").substring(0, 500)}...\n\n`;
-      msg += `🎧 *Audio Full:* ${surah.audioFull["05"]}\n\n`;
-      msg += `_Ketik *.quran ${surahNumber} [ayat]* untuk membaca spesifik ayat._\n`;
-      msg += `_Ketik *.quran ${surahNumber} [ayat] tafsir* untuk membaca tafsir ayat._`;
+      let msg = `📖 *QURAN SURAH INFO*\n`;
+      msg += `*Surah Name:* ${surah.namaLatin} (${surah.nama})\n`;
+      msg += `*Meaning:* ${surah.arti}\n`;
+      msg += `*Total Ayahs:* ${surah.jumlahAyat} ayahs\n`;
+      msg += `*Revelation Place:* ${surah.tempatTurun}\n\n`;
+      msg += `*Short Description:*\n${surah.deskripsi.replace(/<[^>]*>?/gm, "").substring(0, 500)}...\n\n`;
+      msg += `🎧 *Full Audio:* ${surah.audioFull["05"]}\n\n`;
+      msg += `_Type *.quran ${surahNumber} [ayah]* to read a specific ayah._\n`;
+      msg += `_Type *.quran ${surahNumber} [ayah] tafsir* to read the ayah's tafsir._`;
 
       m.reply(msg);
     } catch (e: any) {

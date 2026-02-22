@@ -24,6 +24,15 @@ db.exec(`
     key TEXT PRIMARY KEY,
     value TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    registered INTEGER DEFAULT 0,
+    name TEXT,
+    limit_count INTEGER DEFAULT 25,
+    is_premium INTEGER DEFAULT 0,
+    premium_expired INTEGER DEFAULT 0
+  );
 `);
 
 export const ContactsDB = {
@@ -70,6 +79,50 @@ export const ContactsDB = {
   get(id: string) {
     const stmt = db.prepare("SELECT * FROM contacts WHERE id = ?");
     return stmt.get(id);
+  },
+};
+
+export const UsersDB = {
+  upsert(user: any) {
+    const stmt = db.prepare(`
+      INSERT INTO users (id, registered, name, limit_count, is_premium, premium_expired)
+      VALUES (@id, @registered, @name, @limit_count, @is_premium, @premium_expired)
+      ON CONFLICT(id) DO UPDATE SET
+        registered = coalesce(excluded.registered, users.registered),
+        name = coalesce(excluded.name, users.name),
+        limit_count = coalesce(excluded.limit_count, users.limit_count),
+        is_premium = coalesce(excluded.is_premium, users.is_premium),
+        premium_expired = coalesce(excluded.premium_expired, users.premium_expired)
+    `);
+
+    const data = {
+      id: user.id,
+      registered: user.registered ? 1 : 0,
+      name: user.name || null,
+      limit_count: user.limit_count !== undefined ? user.limit_count : 25,
+      is_premium: user.is_premium ? 1 : 0,
+      premium_expired: user.premium_expired || 0,
+    };
+
+    if (!data.id) return;
+    stmt.run(data);
+  },
+
+  get(id: string) {
+    const stmt = db.prepare("SELECT * FROM users WHERE id = ?");
+    return stmt.get(id) as any;
+  },
+
+  updateLimit(id: string, newLimit: number) {
+    const stmt = db.prepare("UPDATE users SET limit_count = ? WHERE id = ?");
+    stmt.run(newLimit, id);
+  },
+
+  resetDailyLimits(defaultLimit: number = 25) {
+    const stmt = db.prepare(
+      "UPDATE users SET limit_count = ? WHERE is_premium = 0",
+    );
+    stmt.run(defaultLimit);
   },
 };
 

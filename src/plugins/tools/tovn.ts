@@ -16,7 +16,7 @@ cmd.add({
   example: "Reply to an audio file with .tovn",
   async run({ m, sock }: CommandContext) {
     if (!m.quoted)
-      return m.reply("Balas pesan audio/video yang ingin dikonversi.");
+      return m.reply("Reply to an audio/video message to convert it.");
     const quotedMessage = m.quoted?.message;
     const messageType = m?.quoted?.type;
     const mime =
@@ -25,7 +25,7 @@ cmd.add({
         (quotedMessage as any)[messageType]?.mimetype) ||
       "";
     if (!m?.quoted?.isMedia || !/audio|video/.test(mime))
-      return m.reply("File yang dibalas bukan audio/video.");
+      return m.reply("The replied message is not an audio or video.");
 
     try {
       const buffer = await downloadMediaMessage(
@@ -68,7 +68,7 @@ cmd.add({
       ]);
     } catch (err) {
       console.error(err);
-      m.reply("Gagal mengonversi audio.");
+      m.reply("Failed to convert audio.");
     }
   },
 });

@@ -2,6 +2,7 @@ import cmd from "./map.js";
 import type { Command } from "./map.js";
 import type { ProcMsg } from "../utils/msg.js";
 import type { CommandContext } from "./map.js";
+import { UsersDB } from "../utils/db.js";
 
 class CommandHandler {
   private rateLimit = new Map<string, number>();
@@ -82,7 +83,71 @@ class CommandHandler {
           realSenderNum,
         );
         if (!hasPerms) return;
+
+        const isOwner = realSenderNum === ownerNum;
+
+        let user = UsersDB.get(realSenderNum);
+        if (!user) {
+          user = {
+            id: realSenderNum,
+            registered: 0,
+            name: "",
+            limit_count: 25,
+            is_premium: 0,
+            premium_expired: 0,
+          };
+          UsersDB.upsert(user);
+        }
+
+        if (
+          user.is_premium === 1 &&
+          user.premium_expired !== 0 &&
+          Date.now() > user.premium_expired
+        ) {
+          user.is_premium = 0;
+          user.limit_count = 25;
+          user.premium_expired = 0;
+          UsersDB.upsert(user);
+          effectiveSock.sendMessage(processedMessage.chat, {
+            text: "⚠️ Your Premium subscription has expired. You are now a Regular User.",
+          });
+        }
+
+        if (foundCommand.mustRegister && user.registered === 0) {
+          processedMessage.reply(
+            `❌ You are not registered in the bot's database.\n\nType *.register <YourName>* to register and get daily limits.`,
+          );
+          return;
+        }
+
+        if (foundCommand.isPremium && user.is_premium === 0) {
+          processedMessage.reply(
+            `🌟 This feature is exclusive to Premium Users!\n\nContact the owner to extend your subscription.`,
+          );
+          return;
+        }
+
+        let limitDeducted = 0;
+        if (foundCommand.useLimit && user.is_premium === 0 && !isOwner) {
+          const limitRequired =
+            typeof foundCommand.useLimit === "number"
+              ? foundCommand.useLimit
+              : 1;
+          if (user.limit_count < limitRequired) {
+            processedMessage.reply(
+              `⚠️ Your limit has run out.\n_*(Remaining: ${user.limit_count}, Required: ${limitRequired})*_\n\nLimits will automatically reset at 00:00 WIB. Upgrade to VIP/Premium for unlimited usage!`,
+            );
+            return;
+          }
+          limitDeducted = limitRequired;
+        }
+
         await Promise.resolve(foundCommand.run(context));
+
+        if (limitDeducted > 0) {
+          user.limit_count -= limitDeducted;
+          UsersDB.updateLimit(user.id, user.limit_count);
+        }
       }
     } catch (error) {
       console.error(`Error executing command '${commandName}':`, error);
