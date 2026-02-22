@@ -77,7 +77,12 @@ cmd.add({
     } else {
       result = text;
     }
-    const execute = await eval(result);
-    m.reply(util.format(execute));
+    try {
+      const execute = await eval(result);
+      const output = util.format(execute);
+      m.reply(output.length > 4000 ? output.slice(0, 4000) + '\n...[truncated]' : output);
+    } catch (err: any) {
+      m.reply(`❌ *Error:*\n\`\`\`\n${err?.message ?? err}\n\`\`\``);
+    }
   },
 });

@@ -131,7 +131,6 @@ const procMsg = async (
 ): Promise<ProcMsg> => {
   const message = filterMsgs(originalMessage);
   const { key, message: rawMessage } = message || originalMessage;
-  console.log(originalMessage);
   if (!rawMessage) {
     return {
       key: { id: "", remoteJid: "", fromMe: false } as proto.IMessageKey,
@@ -145,7 +144,7 @@ const procMsg = async (
       pushName: "",
       type: "",
       metadata: {},
-      message: proto.Message.fromObject({}),
+      message: proto.Message.create({}),
       msgType: "",
       msgTimestamp: 0,
       text: "",
@@ -175,7 +174,7 @@ const procMsg = async (
     key?.participant || (isGroup ? chatJid : jidNormalizedUser(chatJid) || "");
   const sender =
     isGroup && metadata?.participants
-      ? metadata.participants.find((p: any) => p.id === senderJid)?.jid ||
+      ? metadata.participants.find((p: any) => p.id === senderJid)?.id ||
         senderJid
       : senderJid;
 
@@ -248,7 +247,7 @@ const procMsg = async (
         pushName: "",
         type: "",
         metadata: {},
-        message: proto.Message.fromObject({}),
+        message: proto.Message.create({}),
         msgType: "",
         msgTimestamp: 0,
         text: "",
@@ -288,7 +287,7 @@ const procMsg = async (
     pushName,
     type: msgType,
     metadata,
-    message: rawMessage || proto.Message.fromObject({}),
+    message: rawMessage || proto.Message.create({}),
     msgType,
     msgTimestamp: normalizedTimestamp,
     text: body,

@@ -136,15 +136,12 @@ To use middleware functionality:
 
    cmd.add({
      middleware: async ({ m, sock }: CommandContext) => {
-       // This function runs for every received message
        const messageText = m.body.toLowerCase();
        
-       // Example: Auto-reply to messages containing "hello"
        if (messageText.includes("hello")) {
          m.reply("Hi there! I received your message.");
        }
        
-       // Example: Log all messages to console
        console.log(`Received message: ${m.body} from ${m.sender}`);
      }
    });

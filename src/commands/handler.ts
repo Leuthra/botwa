@@ -1,4 +1,5 @@
-import cmd, { type Command } from "./map.js";
+import cmd from "./map.js";
+import type { Command } from "./map.js";
 import type { ProcMsg } from '../utils/msg.js';
 import type { CommandContext } from "./map.js";
 
@@ -7,46 +8,46 @@ class CommandHandler {
     processedMessage: ProcMsg,
     socket: any,
     store: any,
+    customSend?: (jid: string, content: any, options?: any) => Promise<any>,
   ): Promise<void> {
-   if (process.env.isSelf && processedMessage.sender.split("@")[0] !== process.env.OWNER) return
+    const ownerNum = (process.env.OWNER || "").split("@")[0];
+    if (process.env.isSelf === 'true' && processedMessage.sender.split("@")[0] !== ownerNum) return;
+
     const messageText = processedMessage.body.trim() || "";
     const parseResult = this.parseCommand(messageText);
     const commandName = parseResult[0];
     const args = parseResult[1];
-    const text = args.join(" ") || ""
+    const text = args.join(" ") || "";
+
+    const effectiveSock = customSend
+      ? { ...socket, sendMessage: customSend }
+      : socket;
+
     const context: CommandContext = {
       m: processedMessage,
-      sock: socket,
-      store: store,
+      sock: effectiveSock,
+      store,
       text,
       args,
       command: commandName,
       isCmd: this.isCommand(messageText),
     };
+
     for (const command of cmd.values()) {
       if (command.middleware) {
         await Promise.resolve(command.middleware(context));
       }
     }
+
     if (!this.isCommand(messageText)) return;
-    const foundCommand = cmd
-      .values()
-      .find((plugin: Command) =>
-        plugin?.name
-          ? plugin.name.toLowerCase().trim() ===
-            commandName.toLowerCase().trim()
-          : plugin?.alias &&
-            plugin.alias
-              .map((a: string) => a.toLowerCase().trim())
-              .includes(commandName.toLowerCase().trim()),
-      );
+
+    const foundCommand = cmd.find(commandName);
     if (!foundCommand) return;
+
     try {
       if (foundCommand.run) {
         if (!this.checkPermissions(foundCommand, processedMessage)) {
-          processedMessage.reply(
-            "You do not have permission to use this command.",
-          );
+          processedMessage.reply("You do not have permission to use this command.");
           return;
         }
         await Promise.resolve(foundCommand.run(context));
@@ -54,7 +55,7 @@ class CommandHandler {
     } catch (error) {
       console.error(`Error executing command '${commandName}':`, error);
       processedMessage.reply(
-        `An error occurred while executing the command: ${(error as Error).message}`,
+        `❌ Error: ${(error as Error).message}`,
       );
     }
   }
@@ -70,20 +71,11 @@ class CommandHandler {
   }
 
   private checkPermissions(command: Command, message: ProcMsg): boolean {
-    if (command.isOwner && message.sender.split("@")[0] !== process.env.OWNER) {
-      return false;
-    }
-
-    if (command.isGroup && !message.isGroup) {
-      return false;
-    }
-    if (command.isPrivate && message.isGroup) {
-      return false;
-    }
-
-    if (command.isSelf && !message.fromMe) {
-      return false;
-    }
+    const ownerNum = (process.env.OWNER || "").split("@")[0];
+    if (command.isOwner && message.sender.split("@")[0] !== ownerNum) return false;
+    if (command.isGroup && !message.isGroup) return false;
+    if (command.isPrivate && message.isGroup) return false;
+    if (command.isSelf && !message.fromMe) return false;
     return true;
   }
 }

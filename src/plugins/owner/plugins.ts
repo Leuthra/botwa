@@ -1,5 +1,5 @@
 import cmd, { type CommandContext } from "../../commands/map.js";
-import { join, resolve, dirname } from "path";
+import { join, resolve, dirname, relative } from "path";
 import { readFile, writeFile, readdir, unlink } from "fs/promises";
 import { existsSync } from "fs";
 import { spawn } from "child_process";
@@ -30,7 +30,7 @@ cmd.add({
             if (fileStat.isDirectory()) {
               await getAllTsFiles(filePath, fileList);
             } else if (file.endsWith('.ts')) {
-              fileList.push(filePath.replace(PLUGINS_DIR + '/', ''));
+              fileList.push(relative(PLUGINS_DIR, filePath));
             }
           }
           
