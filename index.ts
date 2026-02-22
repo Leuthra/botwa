@@ -20,6 +20,17 @@ import * as P from "pino";
 import CmdRegis from "./src/commands/register.js";
 import type { LocalStore } from "./src/types.js";
 import { ContactsDB } from "./src/utils/db.js";
+import { backupDatabase, cleanTmpFolder } from "./src/utils/backup.js";
+
+backupDatabase();
+cleanTmpFolder();
+setInterval(
+  () => {
+    backupDatabase();
+    cleanTmpFolder();
+  },
+  24 * 60 * 60 * 1000,
+);
 
 import { onMessagesUpsert } from "./src/events/messages.js";
 import {
@@ -69,6 +80,37 @@ let isStarting = false;
 let reconnectAttempts = 0;
 let shutdownRegistered = false;
 
+export let globalSocket: WASocket | null = null;
+let isReportingError = false;
+
+const sendErrorReport = async (error: Error | any, type: string) => {
+  if (isReportingError || !globalSocket) return;
+  isReportingError = true;
+  try {
+    const ownerNum = process.env.OWNER?.split("@")[0];
+    if (ownerNum) {
+      const jid = `${ownerNum}@s.whatsapp.net`;
+      const stack = error?.stack || error?.message || String(error);
+      const msg = `🚨 *GLOBAL ERROR BOTWA* 🚨\n\n*Type:* ${type}\n*Time:* ${new Date().toLocaleString()}\n\n*Stack Trace:*\n\`\`\`\n${stack.substring(0, 1500)}\n\`\`\``;
+      await globalSocket.sendMessage(jid, { text: msg });
+    }
+  } catch (err) {
+    console.error("[WA] Failed to send error report:", err);
+  } finally {
+    isReportingError = false;
+  }
+};
+
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception encountered:", error);
+  sendErrorReport(error, "Uncaught Exception");
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled Rejection encountered:", reason);
+  sendErrorReport(reason, "Unhandled Rejection");
+});
+
 const startWhatsApp = async () => {
   if (isStarting) {
     console.log("[WA] Already starting, skip duplicate call.");
@@ -112,6 +154,7 @@ const startWhatsApp = async () => {
     };
 
     const whatsapp = await makeWASocket(config as SocketConfig);
+    globalSocket = whatsapp;
 
     if (!whatsapp.authState.creds.registered) {
       try {
@@ -132,8 +175,8 @@ const startWhatsApp = async () => {
             (lastDisconnect?.error as Boom)?.output?.statusCode !==
             DisconnectReason.loggedOut;
           if (shouldReconnect) {
-            const factor = Math.min(reconnectAttempts, 8); 
-            const timeout = Math.min(2000 * Math.pow(2, factor), 300000); 
+            const factor = Math.min(reconnectAttempts, 8);
+            const timeout = Math.min(2000 * Math.pow(2, factor), 300000);
             reconnectAttempts++;
 
             console.log(
@@ -147,8 +190,8 @@ const startWhatsApp = async () => {
         }
         if (connection === "open") {
           console.log("Success Connect to WhatsApp");
-          isStarting = false; 
-          reconnectAttempts = 0; 
+          isStarting = false;
+          reconnectAttempts = 0;
         }
       }
 
