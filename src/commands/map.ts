@@ -18,6 +18,8 @@ export interface Command {
   isGroup?: boolean;
   isPrivate?: boolean;
   isSelf?: boolean;
+  isAdmin?: boolean;
+  isBotAdmin?: boolean;
   desc?: string;
   usage?: string;
   example?: string;

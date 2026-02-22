@@ -1,5 +1,4 @@
 import cmd, { type CommandContext } from "../../commands/map.js";
-import { jidNormalizedUser } from "baileys";
 
 cmd.add({
   name: "kick",
@@ -8,33 +7,9 @@ cmd.add({
   desc: "Kick member(s) from the group",
   usage: "@mention",
   isGroup: true,
+  isAdmin: true,
+  isBotAdmin: true,
   async run({ m, sock }: CommandContext) {
-    const groupMetadata = await sock.groupMetadata(m.chat);
-    const participants = groupMetadata.participants;
-
-    const sender = participants.find(
-      (p: any) => p.id === m.sender || p.lid === m.sender,
-    );
-    const isAdmin = sender?.admin === "admin" || sender?.admin === "superadmin";
-    const isOwner =
-      (process.env.OWNER || "").split("@")[0] ===
-      (sender?.id || m.sender).split("@")[0];
-    if (!isAdmin && !isOwner) return m.reply("❌ You must be a Group Admin.");
-
-    const botJid = sock.user?.id ? jidNormalizedUser(sock.user.id) : "";
-    const botNum = botJid.split("@")[0];
-    const bot = participants.find(
-      (p: any) =>
-        p.id === botJid ||
-        (p.phoneNumber &&
-          (p.phoneNumber === botJid ||
-            p.phoneNumber.startsWith(botNum + "@"))) ||
-        p.id.startsWith(botNum + "@") ||
-        p.id.startsWith(botNum + ":"),
-    );
-    const isBotAdmin = bot?.admin === "admin" || bot?.admin === "superadmin";
-    if (!isBotAdmin) return m.reply("❌ I must be an Admin first.");
-
     let users = m.mentionedJids || [];
     if (m.quoted && m.quoted.sender) {
       users.push(m.quoted.sender);

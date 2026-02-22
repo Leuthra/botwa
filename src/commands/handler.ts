@@ -75,14 +75,13 @@ class CommandHandler {
 
     try {
       if (foundCommand.run) {
-        if (
-          !this.checkPermissions(foundCommand, processedMessage, realSenderNum)
-        ) {
-          processedMessage.reply(
-            "You do not have permission to use this command.",
-          );
-          return;
-        }
+        const hasPerms = await this.checkPermissions(
+          foundCommand,
+          processedMessage,
+          effectiveSock,
+          realSenderNum,
+        );
+        if (!hasPerms) return;
         await Promise.resolve(foundCommand.run(context));
       }
     } catch (error) {
@@ -101,16 +100,73 @@ class CommandHandler {
     return [commandName, args];
   }
 
-  private checkPermissions(
+  private async checkPermissions(
     command: Command,
     message: ProcMsg,
+    sock: any,
     realSenderNum: string,
-  ): boolean {
+  ): Promise<boolean> {
     const ownerNum = (process.env.OWNER || "").split("@")[0];
-    if (command.isOwner && realSenderNum !== ownerNum) return false;
-    if (command.isGroup && !message.isGroup) return false;
-    if (command.isPrivate && message.isGroup) return false;
+    const isOwner = realSenderNum === ownerNum;
+
+    if (command.isOwner && !isOwner) {
+      message.reply("❌ You do not have permission to use this command.");
+      return false;
+    }
+    if (command.isGroup && !message.isGroup) {
+      message.reply("❌ This command can only be used in groups.");
+      return false;
+    }
+    if (command.isPrivate && message.isGroup) {
+      message.reply("❌ This command can only be used in private chats.");
+      return false;
+    }
     if (command.isSelf && !message.fromMe) return false;
+
+    if (message.isGroup && (command.isAdmin || command.isBotAdmin)) {
+      try {
+        const groupMetadata = await sock.groupMetadata(message.chat);
+        const participants = groupMetadata.participants;
+
+        if (command.isAdmin && !isOwner) {
+          const sender = participants.find(
+            (p: any) => p.id === message.sender || p.lid === message.sender,
+          );
+          const isAdmin =
+            sender?.admin === "admin" || sender?.admin === "superadmin";
+          if (!isAdmin) {
+            message.reply("❌ You must be a Group Admin.");
+            return false;
+          }
+        }
+
+        if (command.isBotAdmin) {
+          const { jidNormalizedUser } = await import("baileys");
+          const botJid = sock.user?.id ? jidNormalizedUser(sock.user.id) : "";
+          const botNum = botJid.split("@")[0];
+          const bot = participants.find(
+            (p: any) =>
+              p.id === botJid ||
+              (p.phoneNumber &&
+                (p.phoneNumber === botJid ||
+                  p.phoneNumber.startsWith(botNum + "@"))) ||
+              p.id.startsWith(botNum + "@") ||
+              p.id.startsWith(botNum + ":"),
+          );
+          const isBotAdmin =
+            bot?.admin === "admin" || bot?.admin === "superadmin";
+          if (!isBotAdmin) {
+            message.reply("❌ I must be an Admin first.");
+            return false;
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching group metadata for permissions:", err);
+        message.reply("❌ Failed to verify group permissions.");
+        return false;
+      }
+    }
+
     return true;
   }
 }
